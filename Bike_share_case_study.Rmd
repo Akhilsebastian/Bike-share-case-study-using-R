@@ -1,0 +1,721 @@
+---
+title: "Google Data Analytics Capstone Project:Cyclist Bike-Share Analysis"
+author: "Akhil Sebastian"
+date: "2022-08-10"
+output: html_document
+---
+
+## Introduction
+
+Welcome to a data analysis case study on Cyclistic's bike sharing. In this case study, I will work as a junior data analyst for a fictitious organization called Cyclistic. The company's stakeholder believes that the company's future success depends on the annual membership subscription rate. As a junior data analyst working in the company's marketing department, my team wants to understand how annual and casual members use Cyclistic bikes differently and provide. From these insights, my team is required to develop new marketing strategies to increase the sales of annual memberships.
+
+## About the company
+
+Cyclistic introduced a popular bike-share program in 2016. The initiative has expanded since then to include a fleet of 5,824 bicycles that are geo-tracked and locked into a system of 692 stations throughout Chicago. The bikes may be released from one station and brought back to any other station in the network.
+Up to this point, Cyclistic's marketing approach focused on raising public awareness and appealing to a wide range of consumer groups. The price plans' flexibility, which included single-ride passes, full-day passes, and annual memberships, was one strategy that assisted in making these things possible. Casual riders are those who buy one-ride or all-day passes from the company. Cyclistic members are customers who purchase annual memberships. Although the pricing flexibility helps Cyclistic attract more customers, especially casual riders, Cyclistic's finance analysts have concluded that annual members are much more profitable. The company believes that, rather than creating a marketing campaign to attract new casual riders, it should focus on converting casual riders into members as they are already aware of the annual membership program and have chosen Cyclistic for their mobility needs.
+The marketing analyst team needs to have a deeper understanding of the distinctions between annual members and casual riders, the motivations behind why casual riders would purchase a membership, and the potential impact of digital media on their marketing strategies.
+
+## Phase 1:- Ask
+
+In phase 1, our team was asked to address three questions that will guide the future marketing program:
+How do annual members and casual riders use Cyclistic bikes differently?
+Why would casual riders buy Cyclistic annual memberships?
+How can Cyclistic use digital media to influence casual riders to become members?
+I was assigned the first question: How do annual members and casual riders use Cyclistic bikes differently? To understand the behavior of the riders, I decided to analyze how differently annual members and casual riders use the Cyclistic bikes during a year, which type of bike they prefer most, and the most popular stations.
+
+### Business Task
+Cyclistic's finance analysts have concluded that annual members are much more profitable than casual riders. So the marketing analysts team is requested to understand the behavior of Cyclistic's customers and provide solutions with recommendations with supporting data insights and professional data visualizations.
+
+## Phase 2:- Prepare
+For this case study, the dataset is provided by the Cyclistic itself as CSV files. The dataset is organized according to months, and we will use one year of data from July 2021 to June 2022. As the data is sourced from the first party, the data's credibility is excellent, licensed, and cited. 
+
+The dataset was downloaded and stored locally on a hard drive and saved as CSV files. The dataset has a total of 13 columns and 5,900,385 rows.
+
+**Source of the dataset:- https://divvy-tripdata.s3.amazonaws.com/index.html**
+
+#### Following are the columns:-
+
+1. "ride_id" - Unique identification number for each rider.
+2. "rideable_type" - Type of bike
+3. "started_at" - Starting date and time of the ride
+4. "ended_at" - Ending date and time of the ride
+5. "start_station_name" -  Starting station name for the ride
+6. "start_station_id" - Unique identification number of Starting station
+7. "end_station_name"- Ending station name for the ride
+8. "end_station_id" - Unique identification number of Ending station
+9. "start_lat" - Latitude of the starting station
+10. "start_lng" - Longitude of the starting station
+11. "end_lat" - Latitude of the ending station
+12. "end_lng" - Longitude of the ending station
+13. "member_casual" - Type of customer
+
+
+## Phase 3:- Process
+We will use R studio for Cleaning, analyzing, and visualizing this case study. MSExcel could not handle the dataset as it is large.
+
+### Initialising the Environment
+For this case study, the following packages will be used.
+```{r}
+#installing required libraries
+# install.packages("tidyverse")
+# install.packages("lubridate")
+# install.packages("ggplot2")
+# install.packages("dplyr")
+# install.packages("geosphere")
+# install.packages("skimr")
+# install.packages("mapview")
+
+
+#lording libraries
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(geosphere)
+library(skimr)
+library(mapview)
+```
+
+
+### Load dataset for one year from July 2021 to June 2022. 
+
+```{r}
+#lording data into bike_share
+bike_share<- list.files(path="C:/Users/akhil/OneDrive/Desktop/Case Study/data/trip_data", full.names = TRUE) %>% 
+  lapply(read_csv) %>% 
+  bind_rows 
+```
+
+### Description of dataset
+```{r}
+head(bike_share)
+tail(bike_share)
+colnames(bike_share)
+dim(bike_share)
+str(bike_share)
+summary(bike_share)
+skim_without_charts(bike_share)
+```
+
+### Data cleaning.
+
+In this stage, we will clean the data, create a few new variables for further calculation, analyze, and convert the data type into a few columns. As some of the data in the data set were in uppercase, it is better to convert all the data into lowercase to achieve consistency and avoid redundancy.
+```{r}
+#converting data into lower case
+bike_share$ride_id <- tolower(bike_share$ride_id )
+bike_share$rideable_type <- tolower(bike_share$rideable_type )
+bike_share$start_station_name <- tolower(bike_share$start_station_name )
+bike_share$start_station_id <- tolower(bike_share$start_station_id )
+bike_share$end_station_name <- tolower(bike_share$end_station_name )
+bike_share$end_station_id  <- tolower(bike_share$end_station_id  )
+bike_share$member_casual <- tolower(bike_share$member_casual)
+```
+#### Cyclistic offer three types of bike for the customer.
+```{r}
+unique(bike_share$rideable_type)
+```
+#### Cyclistic has two types of consumers.
+```{r}
+unique(bike_share$member_casual)
+```
+
+## Changing the datatype and defining new Columns
+
+```{r}
+#explicitly changing the data type
+bike_share$start_date <- as.Date(bike_share$started_at, format = "%m/%d/%Y")
+bike_share$start_time <- as.POSIXct(bike_share$started_at,format="%H:%M:%S")
+bike_share$end_date <- as.Date(bike_share$ended_at, format = "%m/%d/%Y")
+bike_share$end_time <-  as.POSIXct(bike_share$ended_at,format="%H:%M:%S")
+
+
+
+
+#defining new Columns for weekday, month, total time, and  distance rode
+bike_share$day <- weekdays(as.Date(bike_share$start_date ))
+bike_share$month <- months(as.Date(bike_share$start_date ))
+bike_share$ride_length <-difftime(bike_share$end_time,bike_share$start_time,units = "secs")
+bike_share$ride_length <- as.numeric(as.character(bike_share$ride_length))
+bike_share$ride_distance <- distGeo(matrix(c(bike_share$start_lng, bike_share$start_lat), ncol=2), matrix (c(bike_share$end_lng, bike_share$end_lat), ncol=2))
+bike_share$ride_distance <- bike_share$ride_distance/1000
+```
+
+
+## Phase 4:- Analyze
+The next step is to aggregate the data into a useful and accessible state, organize and format the data as per requirements, perform some calculations, and identify trends and relationships.
+
+
+
+
+
+Removing rows where ride length is less than or equal to 0 since the data is inaccurate. 
+```{r}
+#removing rows with total time rode less than or equal to 0 second
+bike_share <- bike_share %>%
+  arrange(ride_length) 
+bike_share_duplicate  <- bike_share[!(bike_share$ride_length <=0),]
+bike_share_duplicate  <- bike_share_duplicate[!(bike_share_duplicate$start_lng == -73.79647698 | bike_share_duplicate$start_lat == 45.635034323),]
+```
+
+Removing rows with null values in the latitude and longitude of the end station.
+```{r}
+#removing rows with null values in end_lat and end_lng  
+bike_share_duplicate<- bike_share_duplicate[-which(is.na(bike_share_duplicate$end_lat| bike_share_duplicate$end_lng)), ]
+```
+
+Creating a box plot to identify the outlier.
+```{r}
+boxplot(bike_share_duplicate$ride_length,
+        ylab = "bike_share_duplicate$ride_length")
+```
+
+Distribution of rides over time into several sectors to understand the distribution of the ride length in second.
+```{r}
+#plotting a pie chart to check the distribution of rides over time
+bike_share_pie1 <- bike_share_duplicate %>%
+  mutate(ranges = cut(ride_length, c(0, 60, 300, 600, 3600, 7200, 14400, Inf))) %>% 
+  group_by(ranges) %>% 
+  summarize(number=n())
+
+pie_lables1<- paste0(round(100 * bike_share_pie1$number / sum(bike_share_pie1$number), 1),"%")
+pie(bike_share_pie1$number, labels =pie_lables1 , main = "Distribution of ride over time",
+    col = rainbow(length(bike_share_pie1$number)))
+legend("topright",c( "(0,60]", "(60,300]", "(300,600]", "(600,3.6e+03]", "(3.6e+03,7.2e+03]", "(7.2e+03,1.44e+04]", "(1.44e+04,Inf]"), cex = 0.8, fill = rainbow(length(bike_share_pie1$number)))
+ 
+```
+   
+   
+Removing rows where ride length is less than one minute since the data is irrelevant.   
+  
+```{r}
+#filtering out the data  from 61 seconds on words in respect to ride_length  
+bike_share_duplicate <- subset(bike_share_duplicate, ride_length >60)
+bike_share_duplicate <- bike_share_duplicate %>%
+  arrange(-ride_length) 
+
+#plotting a pie chart to check the distribution of rides between 61 and 3600
+bike_share_pie2 <- bike_share_duplicate %>%
+  mutate(ranges = cut(ride_length, c(60, 300, 600, 3600, 7200, 14400, Inf))) %>% 
+  group_by(ranges) %>% 
+  summarize(number=n())
+
+
+pie_lables2<- paste0(round(100 * bike_share_pie2$number / sum(bike_share_pie2$number), 1),"%")
+pie(bike_share_pie2$number, labels = pie_lables2, main = "Distribution of ride over time after filter",
+    col = rainbow(length(bike_share_pie2$number)))
+legend("topright",c(  "(60,300]", "(300,600]", "(600,3.6e+03]", "(3.6e+03,7.2e+03]", "(7.2e+03,1.44e+04]", "(1.44e+04,Inf]"), cex = 0.8, fill = rainbow(length(bike_share_pie2$number)))
+```
+
+The below box plot shows outliers. But as the data is relevant, the data cannot be dropped. 
+```{r}
+boxplot(bike_share_duplicate$ride_length,
+        ylab = "bike_share1$ride_length")
+```
+
+
+Description of the new data set.
+```{r}
+skim_without_charts(bike_share_duplicate)
+
+```
+
+
+
+
+Creating functions to pot graphs.
+
+```{r}
+#creating a function to create pie chart
+pie_chart <- function(data, grouping_var, title) {
+   tab <- table(data[[deparse(substitute(grouping_var))]])
+   pie_lables<- paste0(round(100 * tab / sum(tab), 1),"%")
+    pie(tab, labels = pie_lables, main = title,
+      col = rainbow(length(tab)))
+  legend("topright", names(tab), cex = 0.8, fill = rainbow(length(tab)))
+}
+
+
+
+#creating a function to create bar graph
+bar_graph <- function(data, grouping_var, title,xtitle, ytitle){
+  df <- table(data[[deparse(substitute(grouping_var))]])
+  barplot(df,
+          main=title,
+          xlab=xtitle,
+          ylab=ytitle,
+          border="black",
+          col=rainbow(7) 
+  )
+}
+
+
+#creating a function to create a group graph
+group_bar <- function(data, gp1, gp2,  mtitle, xtitle, ytitlt, ltitle, n=1){
+  df1 <- data_frame(data %>% 
+    group_by({{gp1}}, {{gp2}}) %>%
+    summarise(number_of_rides = n()))
+
+  if(n==0){
+    df1[[1]] <- ordered(df1[[1]],
+                        levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+  }
+  
+  ggplot(df1,
+         aes(x = df1[[1]], 
+             y = df1[[3]],
+             fill = df1[[2]]))+   labs(title=mtitle, x =xtitle, y =ytitlt , fill = ltitle)+
+    geom_bar(stat = "identity",
+             position = "dodge") +geom_text(aes(label = df1[[3]]),position = position_dodge(width = 1),
+                                            vjust = -0.5, size = 2) +newtheme 
+
+
+}
+
+
+
+
+#creating a function to create line graph
+line_plot <- function(data, gp1, gp2, mtitle, xtitle, ytitlt, ltitle){
+  df1 <- data %>% 
+    group_by({{gp1}},{{gp2}} ) %>%
+    summarise(number_of_rides = n())
+ 
+    df1[[1]] <- factor(df1[[1]], levels= c("July", "August", 
+                                 "September", "October", "November", "December", "January","February","March", "April","May","June"))
+    
+    data[order(df1[[1]]), ]
+ 
+  
+ ggplot(data=df1, aes(x= df1[[1]], y = df1[[3]], group =df1[[2]], color= df1[[2]] )) +
+    geom_line()+
+    geom_point()+
+    labs(title=mtitle,
+         x =xtitle, y =ytitlt , color = ltitle)+geom_text(aes(label = df1[[3]]),position = position_dodge(width = 1),
+                                                          vjust = -0.5, size = 2) +newtheme 
+  
+}
+
+
+
+
+
+#creating a function to create a line graph for average distance rode
+average_ride <- function(data, gp1, gp2, sumz1, mtitle, xtitle, ytitlt, ltitle, n=0){
+  
+  df1<- data %>%
+    group_by({{gp1}}, {{gp2}})%>%
+    summarise(mean({{sumz1}}))
+  
+  if (n==1) {
+    df1[[2]] <- factor(df1[[2]], levels= c("July", "August", 
+                                           "September", "October", "November", "December", "January","February","March", "April","May","June"))
+    
+    data[order(df1[[2]]), ]
+  } else {
+    df1[[2]]<- factor(df1[[2]], levels= c("Sunday", "Monday", 
+                                          "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+    data[order(df1[[2]]), ]
+    
+  }
+  
+ggplot(data=df1, aes(x= df1[[2]], y = df1[[3]], group =df1[[1]], color= df1[[1]] )) +
+    geom_line()+
+    geom_point()+
+    labs(title=mtitle,
+         x =xtitle, y =ytitlt , color = ltitle) +geom_text(aes(label = as.integer(df1[[3]])),position = position_dodge(width = 1),
+                                                           vjust = -0.5, size = 2) +newtheme 
+}
+
+
+average_ride1 <- function(data, gp1, gp2,gp3, sumz1, mtitle, xtitle, ytitlt, ltitle){
+  
+  df1<- data %>%
+    group_by({{gp1}}, {{gp2}},{{gp3}})%>%
+    summarise(mean({{sumz1}}))
+  
+  df1[[3]] <- factor(df1[[3]], levels= c("July", "August", 
+                                         "September", "October", "November", "December", "January","February","March", "April","May","June"))
+  data[order(df1[[3]]), ]
+  
+ggplot(data=df1, aes(x= df1[[3]], y = df1[[4]], group =df1[[2]], color= df1[[2]] )) +
+    geom_line()+
+    geom_point()+
+    facet_wrap(vars(df1[[1]]))+
+    labs(title=mtitle,
+         x =xtitle, y =ytitlt , color = ltitle)+geom_text(aes(label = as.integer(df1[[4]])),position = position_dodge(width = 1),
+                                                          vjust = -0.5, size = 2) +newtheme 
+
+
+}
+
+total_ride <- function(data, gp1, gp2,gp3, mtitle, xtitle, ytitlt, ltitle){
+  
+  df1<- data %>%
+    group_by({{gp1}}, {{gp2}},{{gp3}})%>%
+    summarise(number_of_rides = n())
+  
+  df1[[3]] <- factor(df1[[3]], levels= c("July", "August", 
+                                         "September", "October", "November", "December", "January","February","March", "April","May","June"))
+  data[order(df1[[3]]), ]
+  
+  ggplot(data=df1, aes(x= df1[[3]], y = df1[[4]], group =df1[[2]], color= df1[[2]] )) +
+    geom_line()+
+    geom_point()+
+    facet_wrap(vars(df1[[1]]))+
+    labs(title=mtitle,
+         x =xtitle, y =ytitlt , color = ltitle)+geom_text(aes(label = as.integer(df1[[4]])),position = position_dodge(width = 1),
+                                                          vjust = -0.5, size = 2) +newtheme 
+  
+  
+}
+
+
+
+```
+
+Handling missing values of the names of starting stations
+```{r}
+#filling few missing start station names
+bike_share_duplicate <- bike_share_duplicate %>%
+  group_by(start_lat, start_lng) %>%
+  arrange(start_station_name) %>%
+  fill(start_station_name) 
+```
+
+Creating a few tables to calculate the total number of rides from different customer types and bike types for each Start station. 
+
+```{r}
+#creating a table to calculate the total number of rides for each station as per membership type and bike type
+bike_share_station <- bike_share_duplicate %>%
+  group_by(member_casual,start_station_name)%>%
+  summarise(number_of_rider= n())
+
+bike_share_station1 <- bike_share_duplicate %>%
+  group_by(start_station_name)%>%
+  summarise(number_of_rider= n())
+
+bike_share_station_bike <- bike_share_duplicate %>%
+  group_by(start_station_name, rideable_type)%>%
+  summarise(number_of_rider= n())
+
+#creating a table with the start station name and its location coordinates 
+bike_share_station_location<- bike_share_duplicate %>%
+  select(start_station_name, start_lat,start_lng)
+
+
+#deleting duplicate values on the bases of start station names
+bike_share_station_location <- bike_share_station_location[!duplicated(bike_share_station_location$start_station_name),]
+
+
+#merging two tables
+bike_share_station <- merge(x=bike_share_station,y=bike_share_station_location,by="start_station_name",all=TRUE)
+bike_share_station <-bike_share_station[!is.na(bike_share_station$start_station_name),]
+
+
+bike_share_station1<- merge(x=bike_share_station1,y=bike_share_station_location,by="start_station_name",all=TRUE)
+bike_share_station1 <-bike_share_station1[!is.na(bike_share_station1$start_station_name),]
+
+
+bike_share_station_bike<- merge(x=bike_share_station_bike,y=bike_share_station_location,by="start_station_name",all=TRUE)
+bike_share_station_bike<- bike_share_station_bike[!is.na(bike_share_station_bike$start_station_name),]
+
+bike_share_station <- bike_share_station%>%
+  arrange(-number_of_rider,member_casual,start_station_name)
+bike_share_station1 <- bike_share_station1%>%
+  arrange(-number_of_rider)
+bike_share_station_bike <- bike_share_station_bike%>%
+  arrange(-number_of_rider)
+
+#splitting the table into two
+bike_share_station_member<- bike_share_station[bike_share_station$member_casual == "member", ]
+bike_share_station_causal<- bike_share_station[bike_share_station$member_casual == "casual", ]
+bike_share_station_docked_bike<- bike_share_station_bike[bike_share_station_bike$rideable_type == "docked_bike", ]
+bike_share_station_classic_bike<- bike_share_station_bike[bike_share_station_bike$rideable_type == "classic_bike", ]
+bike_share_station_electric_bike<- bike_share_station_bike[bike_share_station_bike$rideable_type == "electric_bike", ]
+
+
+
+
+
+```
+Creating a custom Theme for the Graphs.
+
+```{r}
+#setting up theme for graphs
+newtheme <- theme_light() +
+  theme(plot.title = element_text(color = "#002949", face = 'bold', size =10),
+
+        panel.border = element_rect(color = "#002949", size = 1),
+        legend.position = "right",
+        legend.text = element_text(colour="red", size=8, face="bold"),
+        legend.title = element_text(colour="red", size=8, face="bold"),
+        axis.title.x = element_text(colour = "#002949"),
+        axis.title.y = element_text(colour = "#002949"),
+        axis.text.x = element_text(angle = 45, hjust = 1, color = '#002949'),
+        axis.text.y = element_text(angle = 45, hjust = 1, color = '#002949'),
+        axis.line = element_line(color = "#002949", size =1),
+  )
+
+```
+
+
+
+
+
+## Phase 5:- Share
+
+```{r}
+#piloting pie chart using a user-defined function
+pie_chart(bike_share_duplicate, rideable_type, "Usage of different types of bike")
+bar_graph(bike_share_duplicate, rideable_type, "Different types of bike", "Bike Type", "count")
+```
+
+
+The above pie chart and bar graph shows classic bikes are the most used bikes by the customer, followed by electric bikes.
+```{r}
+pie_chart(bike_share_duplicate, member_casual, "Membership vs Casual")
+bar_graph(bike_share_duplicate, member_casual, "Membership vs Casual", "Membership Type", "count")
+```
+
+
+The above pie chart and bar graph shows more than half of the customers are already annual members.
+```{r}
+pie_chart(bike_share_duplicate, day, "Usage of different types of the bike during weekdays")
+```
+
+
+The above pie chart shows the weekday rides distribution for one year.
+
+
+
+
+
+
+
+```{r}
+#piloting group graph using a user-defined function
+group_bar(bike_share_duplicate,rideable_type, member_casual,"Total number of rides  for each bike", "Bike Type", "Number of rides", "Membership Type")
+```
+
+
+The above bar graph shows the total number of rides for different bikes with respect to customer type. From the graph, it is clear that classic bikes are most used, followed by electric bikes for both Annual and Casual customers.
+
+```{r}
+group_bar(bike_share_duplicate,day,member_casual, "Total number of rides for each day", "Weekday", "Number of rides", "Membership Type",0)
+```
+
+The above bar graph shows the total number of rides throughout the weekday with respect to customer type. The annual members' and casual customers' behavior are different from each other. Casual members' usage of the bike is more on weekends as compared to weekdays, whereas, for annual members, their usage is more on weekdays as compared to weekends. 
+ 
+
+```{r}
+#piloting line graph using a user-defined function
+line_plot(bike_share_duplicate, month,member_casual,"Total number of rides", "Month", "Number of rides", "Membership Type")
+```
+
+The above line graph shows casual and annual members' total number of rides during 12 months. During the winter season, the number of rides decreases. Other than the month of July and August, annual members have more rides.
+
+```{r}
+line_plot(bike_share_duplicate, month, rideable_type,"Total number of rides", "Month", "Number of rides", "Bike Type")
+```
+
+The above line graph shows casual and annual members' total number of rides during 12 months.Docked bikes have the least number of rides.
+
+
+```{r}
+average_ride(bike_share_duplicate,member_casual, day, ride_length, "Average time driven during weekdays by different member type", "Weekday", "Average Time", "Membership Type",0)
+```
+
+
+The above line graph shows the average time driven during weekdays by casual and annual members. During the weekdays, casual members have a high average time in comparison to annual members. 
+
+```{r}
+average_ride(bike_share_duplicate,rideable_type, day, ride_length, "Average time driven during weekdays by different bike type", "Weekday", "Average Time", "Bike Type",0)
+```
+
+The above line graph shows the average time driven during weekdays by three types of bikes provided by the company.
+
+```{r}
+average_ride(bike_share_duplicate,member_casual, month, ride_distance, "Average distance driven during weekdays by different member type", "Month", "Average Time", "Membership Type",1)
+```
+
+The above line graph shows casual and annual members' average distance driven during 12 months.
+
+```{r}
+average_ride(bike_share_duplicate,rideable_type, month, ride_distance, "Average distance driven during a year by different bike type", "Month", "Average Time", "Bike Type",1)
+```
+
+
+The above line graph shows the average distance driven during 12 months by three types of bikes provided by the company.
+
+
+```{r}
+average_ride1(bike_share_duplicate,member_casual,rideable_type,month, ride_length, "Average bike rental duration for members and casual users ", "Month", "Average Time", "Bike Type")
+
+total_ride(bike_share_duplicate, member_casual,rideable_type, month, "Total bike rental count for members and casual users ", "Month", "Average time", "Bike Type")
+
+```
+
+
+The above line graph shows the average distance driven and total number of rides  during 12 months by three types of bikes provided by the company by both annual members and casual members. Casual members have more average time for the rental of all three bikes. The most used bike is Classic bikes.
+
+
+
+
+
+
+```{r}
+#Plotting map
+bike_share_station1 %>%
+  mapview(
+  xcol = "start_lng", 
+  ycol = "start_lat",
+  cex = "number_of_rider",
+  alpha = 0.9, 
+  crs = 4269,
+  color = "blue",
+  grid = F, 
+  legend = T,
+  layer.name = " Start Station Locations"
+)+
+
+bike_share_station1[1:10,] %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    zcol = "start_station_name",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "red",
+    grid = F, 
+    legend = T,
+    layer.name = " 10 Most popular Start Stations"
+    
+  )
+```
+
+
+The above map shows the location of the Start stations. The size of the circle represents the popularity of the stations. The top most popular stations are highlighted in the Second layer of the map.
+
+
+```{r}
+bike_share_station_member %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "blue",
+    grid = F, 
+    legend = T,
+    layer.name = " Annual Member Start Stations" 
+  )+
+
+bike_share_station_member[1:10,] %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    zcol = "start_station_name",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "red",
+    grid = F, 
+    legend = T,
+    layer.name = " 10 most popular annual member Start Stations" 
+  )+
+
+
+bike_share_station_causal %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "yellow",
+    grid = F, 
+    legend = T,
+    layer.name = " Causal Member Start Stations"
+  )+
+
+bike_share_station_causal[1:10,] %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    zcol = "start_station_name",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "green",
+    grid = F, 
+    legend = T,
+    layer.name = "  10 most popular Causal Member Start Stations"
+    
+  )
+
+```
+
+The above map shows the location of popular stations with respect to the member type. The most popular stations for both riders are different. 
+
+
+```{r}
+bike_share_station_classic_bike[1:10,]  %>%
+  mapview(
+    xcol = "start_lng", 
+    ycol = "start_lat",
+    zcol = "start_station_name",
+    cex = "number_of_rider",
+    alpha = 0.9, 
+    crs = 4269,
+    color = "blue",
+    grid = F, 
+    legend = T,
+    layer.name = "10 most popular Start Stations for clasisic bike"
+  )+
+   bike_share_station_electric_bike[1:10,]  %>%
+   mapview(
+     xcol = "start_lng", 
+     ycol = "start_lat",
+     zcol = "start_station_name",
+     cex = "number_of_rider",
+     alpha = 0.9, 
+     crs = 4269,
+     color = "red",
+     grid = F, 
+     legend = T,
+     layer.name = "10 most popular Start Stations for electric bike"
+   )+
+   bike_share_station_docked_bike[1:10,]  %>%
+   mapview(
+     xcol = "start_lng", 
+     ycol = "start_lat",
+     zcol = "start_station_name",
+     cex = "number_of_rider",
+     alpha = 0.9, 
+     crs = 4269,
+     color = "green",
+     grid = F, 
+     legend = T,
+     layer.name = "10 most popular Start Stations for docked bike"
+   )
+ 
+```
+
+The above map shows the location of popular stations with respect to the bike type.
+
+## Phase 6:- Act
+
+### Conclusion
+
+1. Increase the price of classic bike and electric bike for casual rides as most of the casual riders prefer this type of bike and give temporary offers on the docked bikes for an annual membership. This strategy could help the company to motivate casual members to buy annual memberships.
+
+2. Even if annual members have more rides, the average time and distance are more for casual users. So increasing the cost of the hourly and daily passes could force the casual members to buy an annual pass.
+
+3. Casual riders have a higher count of renting during the weekend. Increasing the rent on weekends could force them to shift to an annual membership.
+
+4. Introducing a special weekend membership, which can later be converted into an annual membership, will be beneficial, as casual riders are more frequent during weekends.
+
+5. Stations like Clark st & lincoln ave and Dusable lake shore dr & Monroe st are the busiest start stations for casual riders. A campaign to promote annual membership in these places would help in faster results.
+
